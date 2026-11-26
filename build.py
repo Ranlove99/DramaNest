@@ -41,11 +41,27 @@ def _tar_gz_bytes(files, base, gzip_name="app.tgz"):
     with GzipFile(fileobj=buf, mode="wb", mtime=MTIME, compresslevel=9,
                   filename=gzip_name) as gz:
         with tarfile.open(fileobj=gz, mode="w", format=tarfile.GNU_FORMAT) as tf:
+            # 与原包一致：显式写入各级目录项（fnOS 安装器依赖目录项识别结构）
+            dirs = []
+            for arcname, _ in files:
+                parts = arcname.split("/")
+                for i in range(1, len(parts)):
+                    d = "/".join(parts[:i]) + "/"
+                    if d not in dirs:
+                        dirs.append(d)
+            for d in dirs:
+                ti = tarfile.TarInfo(d)
+                ti.type = tarfile.DIRTYPE
+                ti.mode = 0o755
+                ti.mtime = MTIME
+                ti.uid = ti.gid = 0
+                ti.uname = ti.gname = ""
+                tf.addfile(ti)
             for arcname, diskpath in files:
                 ti = tf.gettarinfo(diskpath, arcname=arcname)
                 ti.mtime = MTIME
                 ti.uid = ti.gid = 0
-                ti.uname = ti.gname = "root"
+                ti.uname = ti.gname = ""
                 tf.addfile(ti, open(diskpath, "rb"))
     return buf.getvalue()
 
