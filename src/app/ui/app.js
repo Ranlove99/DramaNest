@@ -1304,14 +1304,25 @@
   (function () {
     var KEY = 'dramanest_disclaimer_agreed_v1';
     var mask = $('disclaimerMask'), chk = $('agreeCheck'), btn = $('agreeBtn');
-    if (!mask) return;
+    if (!mask || !chk || !btn) return;
     var agreed = false;
     try { agreed = localStorage.getItem(KEY) === '1'; } catch (e) {}
     if (agreed) { mask.classList.add('hidden'); return; }
     mask.classList.remove('hidden');
-    chk.onchange = function () { btn.disabled = !chk.checked; };
+
+    // 按钮始终可点，仅用样式提示“未勾选”；点击时再校验，避免 disabled 状态不同步导致卡死
+    function syncBtn() { btn.classList.toggle('btn-pending', !chk.checked); }
+    chk.addEventListener('change', syncBtn);
+    chk.addEventListener('input', syncBtn);
+    chk.addEventListener('click', function () { setTimeout(syncBtn, 0); });
+    syncBtn();
+
     btn.onclick = function () {
-      if (!chk.checked) return;
+      if (!chk.checked) {
+        btn.classList.add('shake');
+        setTimeout(function () { btn.classList.remove('shake'); }, 420);
+        return;
+      }
       try { localStorage.setItem(KEY, '1'); } catch (e) {}
       mask.classList.add('hidden');
     };

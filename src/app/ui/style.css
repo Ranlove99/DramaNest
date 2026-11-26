@@ -298,3 +298,14 @@ select:focus { border-color:#ff8a5c; background:#fff; }
 .disclaimer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid #eceef2; }
 .disclaimer-check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: #4b5563; cursor: pointer; }
 .disclaimer-check input { flex: none; width: 16px; height: 16px; }
+
+/* 免责声明按钮：未勾选时半透明提示，仍可点击（点击会抖动提示先勾选） */
+#agreeBtn.btn-pending { opacity: .55; }
+#agreeBtn.shake { animation: dn-shake .4s; }
+@keyframes dn-shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
