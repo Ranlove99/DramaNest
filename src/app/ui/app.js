@@ -1,8 +1,14 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
 
+  // 应用根路径：端口模式为空（/api），统一网关模式为 /app/dramanest（/app/dramanest/api）
+  var API_ROOT = (function () {
+    var m = location.pathname.match(/^(\/app\/[^\/]+)/);
+    return m ? m[1] : '';
+  })();
+
   function api(path, opts) {
-    return fetch('/app/dramanest/api' + path, opts).then(function (r) {
+    return fetch(API_ROOT + '/api' + path, opts).then(function (r) {
       return r.json().catch(function () { return {}; });
     });
   }

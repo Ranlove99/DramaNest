@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DramaNest 剧巢</title>
-<base href="/app/dramanest/">
+<script>
+/* 动态 base：端口模式（/）与统一网关模式（/app/dramanest/）都能正确解析相对资源 */
+(function () {
+  var m = location.pathname.match(/^(\/app\/[^\/]+\/)/);
+  document.write('<base href="' + (m ? m[1] : '/') + '">');
+})();
+</script>
 <link rel="icon" type="image/png" href="images/icon_64.png">
 <link rel="apple-touch-icon" href="images/icon_256.png">
 <link rel="stylesheet" href="style.css">

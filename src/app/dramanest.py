@@ -2453,21 +2453,43 @@ class UnixHTTPServer(ThreadingHTTPServer):
 
 def main():
     load_tasks()
-    sock = os.path.join(HERE, "app.sock")
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--socket", default="app.sock")
+    ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=0)
     args = ap.parse_args()
+
+    # 端口模式：监听 TCP，供 fnOS 端口入口 / 浏览器直连。
+    # 统一网关模式：同时监听 Unix Socket，二者共用同一 Handler，双兼容。
+    servers = []
     if args.port:
-        server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-        log("listening TCP %d" % args.port)
-    else:
-        sp = args.socket if os.path.isabs(args.socket) else os.path.join(HERE, args.socket)
-        server = UnixHTTPServer(sp, Handler)
-        log("listening unix %s" % sp)
+        try:
+            tcp = ThreadingHTTPServer((args.host, args.port), Handler)
+            tcp.daemon_threads = True
+            servers.append(tcp)
+            log("listening TCP %s:%d" % (args.host, args.port))
+        except OSError as e:
+            log("TCP %s:%d 绑定失败(端口被占用?)，回退仅 unix socket: %s"
+                % (args.host, args.port, e))
+
+    sp = args.socket if os.path.isabs(args.socket) else os.path.join(HERE, args.socket)
     try:
-        server.serve_forever()
+        unix = UnixHTTPServer(sp, Handler)
+        servers.append(unix)
+        log("listening unix %s" % sp)
+    except Exception as e:
+        log("unix socket 监听失败(可忽略, 端口模式仍可用): %s" % e)
+
+    if not servers:
+        log("ERROR: 无可用监听方式")
+        sys.exit(1)
+
+    # 除第一个 server 在主线程跑，其余放后台线程
+    for s in servers[1:]:
+        threading.Thread(target=s.serve_forever, daemon=True).start()
+    try:
+        servers[0].serve_forever()
     except KeyboardInterrupt:
         pass
 

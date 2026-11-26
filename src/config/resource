@@ -1,4 +1,7 @@
 {
+  "port-config": {
+    "protocol-file": "dramanest.sc"
+  },
   "data-share": {
     "shares": [
       {

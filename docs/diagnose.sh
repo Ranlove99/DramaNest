@@ -36,12 +36,17 @@ echo "--- 应用日志尾部 ---"
 tail -30 "$BASE/var/app.log" 2>&1
 
 echo
-echo "========== 6. 网关探测（关键）=========="
-echo "--- 通过系统域名访问网关前缀 ---"
-curl -s -o /dev/null -w "GET /app/dramanest/ -> HTTP %{http_code}\n" "http://127.0.0.1/app/dramanest/" 2>&1
-curl -s -o /dev/null -w "GET /app/duanduan/ -> HTTP %{http_code}\n" "http://127.0.0.1/app/duanduan/" 2>&1
-echo "--- 直连 socket ---"
-curl -s --unix-socket "$BASE/target/app.sock" -o /dev/null -w "unix socket / -> HTTP %{http_code}\n" "http://localhost/app/dramanest/" 2>&1
+echo "========== 6. 端口探测（端口模式，关键）=========="
+PORT=$(sed -n 's/.*service_port[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' "$BASE/manifest" 2>/dev/null | head -1)
+echo "manifest service_port: ${PORT:-未声明}"
+if [ -n "${PORT:-}" ]; then
+  curl -s -o /dev/null -w "GET http://127.0.0.1:$PORT/api/version -> HTTP %{http_code}\n" "http://127.0.0.1:$PORT/api/version" 2>&1
+  curl -s -o /dev/null -w "GET http://127.0.0.1:$PORT/ -> HTTP %{http_code}\n" "http://127.0.0.1:$PORT/" 2>&1
+  echo "--- 端口监听情况 ---"
+  (ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null) | grep ":$PORT " 2>&1
+fi
+echo "--- 直连 socket（网关模式兼容）---"
+curl -s --unix-socket "$BASE/target/app.sock" -o /dev/null -w "unix socket / -> HTTP %{http_code}\n" "http://localhost/" 2>&1
 
 echo
 echo "========== 7. fnOS 入口注册数据库 =========="

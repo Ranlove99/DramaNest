@@ -13,8 +13,10 @@ set -u
 # ==================== 按应用适配 ====================
 APP_NAME="dramanest"           # 必须与 manifest.appname 一致
 APP_MODULE="dramanest"      # python -m <模块>；不用模块方式则改 start_app 的启动行
-APP_ARGS=""                      # 追加参数，如 "--host 0.0.0.0"
-READY_CHECK='[ -S "$APP_DIR/app.sock" ]'   # unix socket 就位即视为就绪（无需外部依赖）
+SERVICE_PORT="18765"             # 端口模式监听端口，必须与 manifest.service_port 一致
+APP_ARGS="--host 0.0.0.0 --port ${SERVICE_PORT}"   # 端口模式 + 同时保留 unix socket
+# 就绪判定：端口可连 或 socket 就位 均视为就绪（eval 时展开变量）
+READY_CHECK='[ -S "$APP_DIR/app.sock" ] || (exec 3<>/dev/tcp/127.0.0.1/$SERVICE_PORT) 2>/dev/null'
 READY_TIMEOUT=60                 # 就绪等待上限（秒）
 LOG_MAX_KB=5120                  # 日志超过 5MB 自动轮转一份
 SOCK_FILE="app.sock"        # 相对 APP_DIR 的 unix socket（网关模式）；无则留空

@@ -4,10 +4,9 @@
             "title": "DramaNest 剧巢",
             "icon": "images/icon_{0}.png",
             "type": "iframe",
-            "protocol": "",
-            "gatewayPrefix": "/app/dramanest",
-            "gatewaySocket": "app.sock",
-            "url": "/app/dramanest",
+            "protocol": "http",
+            "port": "18765",
+            "url": "/",
             "allUsers": true
         }
     }

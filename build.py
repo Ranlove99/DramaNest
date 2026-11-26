@@ -105,6 +105,10 @@ def collect_fpk_files(platform, app_tgz_path):
                 out.append((arc, full))
     out.append(("ICON.PNG", os.path.join(SRC, "ICON.PNG")))
     out.append(("ICON_256.PNG", os.path.join(SRC, "ICON_256.PNG")))
+    # 防火墙/端口协议文件（config/resource 的 port-config.protocol-file 引用）
+    sc = os.path.join(SRC, "dramanest.sc")
+    if os.path.isfile(sc):
+        out.append(("dramanest.sc", sc))
     out.append(("app.tgz", app_tgz_path))
     return out
 
