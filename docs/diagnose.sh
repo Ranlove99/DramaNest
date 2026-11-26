@@ -6,6 +6,15 @@
 APP="dramanest"
 BASE="/var/apps/$APP"
 
+echo "========== 0. 系统与已装包版本 =========="
+echo "--- 架构 ---"
+uname -m 2>&1
+echo "--- fnOS 版本 ---"
+cat /etc/trim_version 2>/dev/null || (cat /etc/os-release 2>/dev/null | head -6)
+echo "--- 已装包 manifest 关键字段（有 service_port 才是新版端口模式）---"
+grep -E "^(appname|version|platform|service_port|desktop_applaunchname)" "$BASE/manifest" 2>/dev/null || echo "manifest 不存在"
+
+echo
 echo "========== 1. 应用目录结构 =========="
 ls -la "$BASE" 2>&1
 echo "--- target 指向 ---"
