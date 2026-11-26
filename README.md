@@ -59,6 +59,13 @@ DramaNest/
 
 依赖 `python312` 应用（会随包自动声明）；视频合成使用系统 `ffmpeg`（默认 `/usr/bin/ffmpeg`，可在设置中修改）。
 
+### 访问方式
+
+本应用采用 **端口模式** 注册桌面入口（默认端口 `18765`），同时保留 Unix Socket 兼容统一网关。桌面图标通过 iframe 打开 `http://NAS_IP:18765/`。
+
+- 若桌面 iframe 打不开（例如 NAS 以 HTTPS 访问导致浏览器拦截混合内容），可直接在浏览器访问 `http://NAS_IP:18765/`。
+- 如需改端口，同时修改 `manifest.tmpl` 的 `service_port`、`src/cmd/main` 的 `SERVICE_PORT`、`src/app/ui/config` 的 `port` 和 `src/dramanest.sc` 的端口。
+
 ## 首次使用
 
 1. 打开应用，阅读并同意首次显示的使用声明。
