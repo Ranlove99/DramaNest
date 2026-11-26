@@ -92,11 +92,9 @@ rotate_log() {
   return 0
 }
 
-write_default_config() {
-  [ -f "$CONFIG_FILE" ] && return 0
-  mkdir -p "$ETC_DIR"
-  printf '{\n  "appname": "%s"\n}\n' "$APP_NAME" >"$CONFIG_FILE"
-}
+# 注意：这里不要预写 $CONFIG_FILE。
+# 应用启动时会自己 bootstrap 一份配置（含自动挑一个真正可写的下载目录），
+# 脚本先写个只有 appname 的空壳会让那一步跳过，默认的 /vol1/1000/... 就可能一直不可写。
 
 start_app() {
   local pid py i
@@ -113,7 +111,6 @@ start_app() {
   # app/ 的内容整体解压到 TRIM_APPDEST，所以这里判断 APP_DIR 本身，不是 APP_DIR/app
   [ -d "$APP_DIR" ] || fail "应用目录缺失：$APP_DIR"
 
-  write_default_config
   rotate_log
   # 清掉上次异常退出留下的 socket，否则 bind 会报 Address already in use
   [ -n "$SOCK_FILE" ] && rm -f "$APP_DIR/$SOCK_FILE" 2>/dev/null

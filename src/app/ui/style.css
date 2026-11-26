@@ -313,3 +313,20 @@ select:focus { border-color:#ff8a5c; background:#fff; }
 /* 关键修复：.disclaimer-mask 的 display:flex 会覆盖前面 .hidden 的 display:none，
    必须用双类选择器提高特异性，否则点“同意”后遮罩无法隐藏 */
 .disclaimer-mask.hidden { display: none !important; }
+
+/* 授权目录提示块：来自飞牛应用设置（TRIM_DATA_ACCESSIBLE_PATHS）的授权结果 */
+.auth-tip { display: flex; flex-direction: column; gap: 6px; margin-top: 10px;
+  padding: 10px 12px; border: 1px solid #eceef2; border-radius: 9px;
+  background: #fbfbfd; font-size: 12.5px; color: #4b5563; }
+.auth-tip.auth-on { border-color: #d6ecd9; background: #f6fbf7; }
+.auth-tip b { font-size: 12.5px; color: #2f3742; }
+.auth-tip .hint { margin-top: 0; line-height: 1.6; }
+.auth-tip .auth-paths { display: flex; flex-wrap: wrap; gap: 6px; }
+.auth-tip .auth-paths code { font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11.5px; color: #3f5aa6; background: #eef2fb; padding: 2px 7px; border-radius: 5px; }
+.auth-tip .auth-refresh { align-self: flex-start; margin-top: 2px; }
+
+/* 目录来源标记 */
+.ptag { flex: none; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
+.ptag-auth { background: #eaf3ff; color: #2f6fbe; }
+.ptag-share { background: #f1ecff; color: #6b4bbd; }

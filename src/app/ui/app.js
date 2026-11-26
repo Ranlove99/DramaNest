@@ -1160,6 +1160,40 @@
     return '<span class="pstat p-off">无权限</span>';
   }
 
+  function pathTag(p) {
+    if (p.auth) return '<span class="ptag ptag-auth">已授权</span>';
+    if (p.share) return '<span class="ptag ptag-share">共享</span>';
+    return '';
+  }
+
+  // 飞牛应用设置里授权的目录（TRIM_DATA_ACCESSIBLE_PATHS）会随应用启动注入，
+  // 所以刚授权完要重启应用才能看到 —— 这里把入口和刷新方式讲清楚。
+  function renderAuthTip(d) {
+    var box = $('authTip');
+    if (!box) return;
+    var auth = d.authorized || [];
+    if (auth.length) {
+      box.className = 'auth-tip auth-on';
+      box.innerHTML = '<b>已从飞牛应用设置拿到 ' + auth.length + ' 个授权目录</b>' +
+        '<div class="auth-paths">' + auth.map(function (p) {
+          return '<code>' + esc(p) + '</code>';
+        }).join('') + '</div>' +
+        '<span class="hint">直接点下面的「选用」即可作为下载目录。再授权新目录后，' +
+        '需要在飞牛应用中心把 DramaNest 停止再启动（或保存一次设置）才会刷新。</span>';
+    } else {
+      box.className = 'auth-tip';
+      box.innerHTML = '<b>没有读到授权目录</b>' +
+        '<span class="hint">到飞牛「应用中心 → DramaNest 剧巢 → 设置 → 授权目录」添加要读写的文件夹，' +
+        '保存后应用会自动重启并读取新授权；回到本页点「刷新」即可看到。' +
+        '也可以直接选用下面标记为「可写」的目录。</span>';
+    }
+    var rf = document.createElement('button');
+    rf.className = 'ghost small auth-refresh';
+    rf.textContent = '刷新授权状态';
+    rf.onclick = function () { rf.disabled = true; loadPaths(); };
+    box.appendChild(rf);
+  }
+
   function renderPaths(d) {
     // 用户刚新建/检测过的目录不在后端候选列表里（后端只列存储卷和回退目录），
     // 把它并到最前面，否则点完「创建并授权」列表里看不到这个新目录。
@@ -1168,11 +1202,12 @@
       if (!list.some(function (p) { return p.path === x.path; })) list.unshift(x);
     });
     PATHS = list;
+    renderAuthTip(d);
     var cur = d.current || '';
     $('pathList').innerHTML = PATHS.map(function (p) {
       return '<div class="path-row' + (p.path === cur ? ' is-cur' : '') + '">' +
         '<span class="p-path" title="' + esc(p.error || '') + '">' + esc(p.path) + '</span>' +
-        pathBadge(p) +
+        pathTag(p) + pathBadge(p) +
         (p.mode ? '<span class="p-mode">' + esc(p.mode) + '</span>' : '') +
         '<button class="ghost small pick" data-p="' + esc(p.path) + '"' +
         (p.writable ? '' : ' title="' + esc(p.error || '') + '"') + '>' +

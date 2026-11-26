@@ -149,10 +149,88 @@ def _probe_writable(d):
 
 def fallback_roots():
     return [
+        "/var/apps/%s/share/data/DramaNest" % APPNAME,
         "/var/apps/%s/shares/data/DramaNest" % APPNAME,
         os.path.join(VAR_DIR, "downloads"),
         "/tmp/dramanest_downloads",
     ]
+
+
+def _env_paths(name):
+    """读取 fnOS 注入的路径列表环境变量（多个路径用 : 分隔）。"""
+    out = []
+    for p in (os.environ.get(name) or "").split(":"):
+        p = p.strip()
+        if not p.startswith("/"):
+            continue
+        p = os.path.normpath(p)
+        if p not in out:
+            out.append(p)
+    return out
+
+
+def authorized_paths():
+    """用户在飞牛「应用设置 → 授权目录」里授予的目录。
+
+    fnOS 通过 TRIM_DATA_ACCESSIBLE_PATHS 注入（冒号分隔）。manifest 里
+    disable_authorization_path = false 时应用设置页才会出现授权入口。
+    """
+    return _env_paths("TRIM_DATA_ACCESSIBLE_PATHS")
+
+
+def share_paths():
+    """config/resource 声明的共享目录（TRIM_DATA_SHARE_PATHS + share 软链）。"""
+    out = _env_paths("TRIM_DATA_SHARE_PATHS")
+    for link in ("/var/apps/%s/share" % APPNAME, "/var/apps/%s/shares" % APPNAME):
+        if not os.path.isdir(link):
+            continue
+        try:
+            for n in sorted(os.listdir(link)):
+                fp = os.path.normpath(os.path.join(link, n))
+                if os.path.isdir(fp) and fp not in out:
+                    out.append(fp)
+        except Exception:
+            pass
+    return out
+
+
+def preferred_roots():
+    """落盘候选顺序：用户授权目录 > 共享目录 > 应用自有目录。"""
+    out = []
+    for base in authorized_paths() + share_paths():
+        out.append(os.path.join(base, "DramaNest"))
+        out.append(base)
+    out += fallback_roots()
+    seen, uniq = set(), []
+    for p in out:
+        if p not in seen:
+            seen.add(p)
+            uniq.append(p)
+    return uniq
+
+
+def bootstrap_config():
+    """首次启动：默认下载目录若不可写，自动挑一个真正可写的位置。
+
+    默认值 /vol1/1000/Movie/DramaNest 只在「第一个存储空间的 1000 用户」下成立，
+    别的机器上可能不存在，或者应用账号没有权限。此时按
+    授权目录 → 共享目录 → 应用自有目录 的顺序找一个能写的。
+    """
+    if os.path.isfile(CONFIG_FILE):
+        return
+    cfg = default_config()
+    try:
+        _probe_writable(cfg["download_root"])
+    except Exception:
+        for p in preferred_roots():
+            try:
+                _probe_writable(p)
+                cfg["download_root"] = p
+                log("首次启动：默认目录不可写，下载目录自动设为 %s" % p)
+                break
+            except Exception:
+                continue
+    save_config(cfg)
 
 
 def path_status(p):
@@ -185,10 +263,12 @@ def path_status(p):
 
 
 def candidate_paths(limit=60):
-    """列出可供选择的目录：当前目录、各存储卷、卷下的用户/共享目录、应用自有目录。"""
+    """列出可供选择的目录：授权目录、共享目录、当前目录、各存储卷、应用自有目录。"""
     cfg = load_config()
     cur = (cfg.get("download_root") or "").strip()
-    cands = [cur] if cur else []
+    cands = authorized_paths() + share_paths()
+    if cur:
+        cands.append(cur)
     for i in range(1, 10):
         base = "/vol%d" % i
         if not os.path.isdir(base):
@@ -228,18 +308,29 @@ def candidate_paths(limit=60):
 def paths_snapshot():
     cfg = load_config()
     cur = (cfg.get("download_root") or "").strip()
+    auth = authorized_paths()
+    share = share_paths()
     items = [path_status(p) for p in candidate_paths()]
-    # 当前目录排最前，其次可写的，再次只读，最后不存在
+    # 当前目录排最前，其次授权/共享目录，再次可写，再次只读，最后不存在
     def rank(x):
         if x["path"] == os.path.normpath(cur or ""):
             return (0, 0)
-        if x["writable"]:
+        if x["path"] in auth:
             return (1, 0)
-        if x["exists"] and x["readable"]:
+        if x["path"] in share:
+            return (1, 1)
+        if x["writable"]:
             return (2, 0)
-        return (3, 0)
+        if x["exists"] and x["readable"]:
+            return (3, 0)
+        return (4, 0)
     items.sort(key=rank)
-    return {"current": cur, "app_user": APPNAME, "paths": items}
+    for it in items:
+        it["auth"] = it["path"] in auth
+        it["share"] = it["path"] in share
+    return {"current": cur, "app_user": APPNAME,
+            "authorized": auth, "shares": share,
+            "paths": items}
 
 
 def resolve_download_root(cfg):
@@ -253,7 +344,7 @@ def resolve_download_root(cfg):
         return root, ""
     except Exception as e:
         first_err = e
-    for fb in fallback_roots():
+    for fb in preferred_roots():
         try:
             _probe_writable(fb)
             warn = "下载目录 %s 不可用（%s），已自动改用 %s" % (root, first_err, fb)
@@ -262,7 +353,7 @@ def resolve_download_root(cfg):
         except Exception:
             continue
     log("所有下载目录均不可写，最后尝试 %s" % root)
-    return root, "下载目录均不可写，请到「设置」里改一个可写路径"
+    return root, "下载目录均不可写，请到「设置」里改一个可写路径（或在飞牛应用设置里授权目录）"
 
 
 # ---------------- 站点解析 ----------------
@@ -2453,6 +2544,7 @@ class UnixHTTPServer(ThreadingHTTPServer):
 
 def main():
     load_tasks()
+    bootstrap_config()
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--socket", default="app.sock")

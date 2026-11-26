@@ -56,6 +56,20 @@ if [ -n "${PORT:-}" ]; then
 fi
 echo "--- 直连 socket（网关模式兼容）---"
 curl -s --unix-socket "$BASE/target/app.sock" -o /dev/null -w "unix socket / -> HTTP %{http_code}\n" "http://localhost/" 2>&1
+echo "--- 网关路径 /app/dramanest（远端走主域，不会有子域名证书问题）---"
+curl -s -o /dev/null -w "GET http://127.0.0.1:$PORT/app/dramanest/api/version -> HTTP %{http_code}\n" "http://127.0.0.1:${PORT:-18765}/app/dramanest/api/version" 2>&1
+
+echo
+echo "========== 6.1 授权目录（设置里授权文件夹后才会有值）=========="
+PID=$(head -n 1 "$BASE/var/app.pid" 2>/dev/null | tr -d '[:space:]')
+if [ -n "${PID:-}" ] && [ -r "/proc/$PID/environ" ]; then
+  tr '\0' '\n' <"/proc/$PID/environ" 2>/dev/null | grep -E '^TRIM_DATA_(ACCESSIBLE|SHARE)_PATHS=' \
+    || echo "进程环境里没有 TRIM_DATA_*_PATHS（说明还没授权任何目录，或包是旧版 disable_authorization_path=true）"
+else
+  echo "读不到进程环境（pid=${PID:-无}）"
+fi
+echo "--- share 软链 ---"
+ls -la "$BASE/share" 2>&1 | head -20
 
 echo
 echo "========== 7. fnOS 入口注册数据库 =========="
