@@ -55,6 +55,13 @@ def collect_app_files():
     app_dir = os.path.join(SRC, "app")
     out = []
     out.append(("dramanest.py", os.path.join(app_dir, "dramanest.py")))
+    # 与原包结构一致：app.tgz 内也带一份 config/（privilege、resource）
+    app_cfg = os.path.join(app_dir, "config")
+    if os.path.isdir(app_cfg):
+        for n in sorted(os.listdir(app_cfg)):
+            fp = os.path.join(app_cfg, n)
+            if os.path.isfile(fp):
+                out.append((os.path.join("config", n), fp))
     ui_dir = os.path.join(app_dir, "ui")
     for root, dirs, names in os.walk(ui_dir):
         dirs.sort()
