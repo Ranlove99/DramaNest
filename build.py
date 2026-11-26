@@ -66,6 +66,36 @@ def _tar_gz_bytes(files, base, gzip_name="app.tgz"):
     return buf.getvalue()
 
 
+def _index_with_inline_css(ui_dir):
+    """打包时把 style.css 内联进 index.html。
+
+    统一网关只转发声明的 /app/dramanest 前缀，任何静态资源路径算错都会 404，
+    表现出来就是一整页没有样式的裸 HTML。内联 CSS 后即使网关/缓存对
+    style.css 做了什么奇怪的事，页面至少永远是完整样式。
+    """
+    src_html = os.path.join(ui_dir, "index.html")
+    css_path = os.path.join(ui_dir, "style.css")
+    if not os.path.isfile(css_path):
+        return src_html
+    with open(css_path, encoding="utf-8") as fh:
+        css = fh.read()
+    if "</style" in css.lower():  # css 里出现闭合标签就不内联，避免破坏 HTML
+        return src_html
+    with open(src_html, encoding="utf-8") as fh:
+        html = fh.read()
+    tag = '<link rel="stylesheet" href="style.css">'
+    if tag not in html:
+        return src_html
+    html = html.replace(tag,
+                        "<style>/* style.css 由 build.py 内联，避免网关下静态资源丢失 */\n"
+                        + css + "\n</style>")
+    os.makedirs(DIST, exist_ok=True)
+    dst = os.path.join(DIST, ".index.inlined.html")
+    with open(dst, "w", encoding="utf-8") as fh:
+        fh.write(html)
+    return dst
+
+
 def collect_app_files():
     """收集 app.tgz 内容：主程序 + ui 全部文件。"""
     app_dir = os.path.join(SRC, "app")
@@ -79,12 +109,17 @@ def collect_app_files():
             if os.path.isfile(fp):
                 out.append((os.path.join("config", n), fp))
     ui_dir = os.path.join(app_dir, "ui")
+    inlined_index = None
     for root, dirs, names in os.walk(ui_dir):
         dirs.sort()
         names.sort()
         for n in names:
             full = os.path.join(root, n)
             arc = os.path.join("ui", os.path.relpath(full, ui_dir))
+            if arc == os.path.join("ui", "index.html"):
+                if inlined_index is None:
+                    inlined_index = _index_with_inline_css(ui_dir)
+                full = inlined_index
             out.append((arc, full))
     return out
 

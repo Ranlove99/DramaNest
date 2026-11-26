@@ -2005,6 +2005,13 @@ class Handler(BaseHTTPRequestHandler):
         return p
 
     def do_GET(self):
+        # 网关入口 url 是 /app/dramanest（无尾斜杠）。若直接按目录页返回 HTML，
+        # Chrome 的预加载扫描器会把 style.css/app.js 按 /app/ 去请求（忽略后来
+        # document.write 出来的 <base>），于是 404。这里显式 302 到带斜杠形式。
+        u = urllib.parse.urlparse(self.path)
+        if u.path == PREFIX:
+            dest = PREFIX + "/" + (("?" + u.query) if u.query else "")
+            return self._send(302, "", "text/plain; charset=utf-8", {"Location": dest})
         p = self._path()
         if p in ("/", "/index.html"):
             return self._serve_ui("index.html")

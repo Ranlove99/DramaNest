@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DramaNest 剧巢</title>
 <script>
-/* 动态 base：端口模式（/）与统一网关模式（/app/dramanest/）都能正确解析相对资源 */
+/* 动态 base：
+   端口模式 → /
+   网关模式 → /app/dramanest/
+   注意网关入口打开时 pathname 可能是 /app/dramanest（没有尾部斜杠），
+   旧正则要求结尾必须有 / ，会回退成 / 导致 CSS/JS/图片全部请求到网关外面（裸 HTML）。
+   这里用 (?=\/|$) 同时兼容有无尾斜杠两种形式。 */
 (function () {
-  var m = location.pathname.match(/^(\/app\/[^\/]+\/)/);
-  document.write('<base href="' + (m ? m[1] : '/') + '">');
+  var m = location.pathname.match(/^(\/app\/[^\/]+)(?=\/|$)/);
+  document.write('<base href="' + (m ? m[1] + '/' : '/') + '">');
 })();
 </script>
 <link rel="icon" type="image/png" href="images/icon_64.png">
@@ -284,5 +289,22 @@
 
 <script src="hls.min.js"></script>
 <script src="app.js"></script>
+<script>
+/* 兜底：网关只转发 /app/dramanest 前缀，静态路径算错时 app.js 会 404。
+   app.js 正常执行会在末尾写 window.DN_BOOTED；没有就用绝对路径逐个重试。 */
+(function () {
+  if (window.DN_BOOTED) return;
+  var roots = ['/app/dramanest/', '/'];
+  var i = 0;
+  function next() {
+    if (window.DN_BOOTED || i >= roots.length) return;
+    var s = document.createElement('script');
+    s.src = roots[i++] + 'app.js?retry=1';
+    s.onerror = next;
+    document.head.appendChild(s);
+  }
+  next();
+})();
+</script>
 </body>
 </html>

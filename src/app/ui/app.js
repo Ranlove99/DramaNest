@@ -1365,4 +1365,7 @@
 
   refresh();
   setInterval(refresh, 2500);
+
+  // 给 index.html 的兜底加载器用：脚本执行到这里才算真正启动成功
+  window.DN_BOOTED = true;
 })();

@@ -57,7 +57,10 @@ fi
 echo "--- 直连 socket（网关模式兼容）---"
 curl -s --unix-socket "$BASE/target/app.sock" -o /dev/null -w "unix socket / -> HTTP %{http_code}\n" "http://localhost/" 2>&1
 echo "--- 网关路径 /app/dramanest（远端走主域，不会有子域名证书问题）---"
-curl -s -o /dev/null -w "GET http://127.0.0.1:$PORT/app/dramanest/api/version -> HTTP %{http_code}\n" "http://127.0.0.1:${PORT:-18765}/app/dramanest/api/version" 2>&1
+curl -s -o /dev/null -w "GET /app/dramanest (无尾斜杠) -> HTTP %{http_code}, Location=%{redirect_url}\n" "http://127.0.0.1:${PORT:-18765}/app/dramanest" 2>&1
+curl -s -o /dev/null -w "GET /app/dramanest/api/version -> HTTP %{http_code}\n" "http://127.0.0.1:${PORT:-18765}/app/dramanest/api/version" 2>&1
+echo "--- 页面 CSS 是否内联（应为 1）---"
+grep -c "style.css 由 build.py 内联" "$BASE/target/ui/index.html" 2>/dev/null || echo 0
 
 echo
 echo "========== 6.1 授权目录（设置里授权文件夹后才会有值）=========="
