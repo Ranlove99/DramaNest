@@ -1,0 +1,22 @@
+[
+  {
+    "stepTitle": "安装说明",
+    "items": [
+      {
+        "type": "tips",
+        "helpText": "<p><b>DramaNest（剧巢）</b>：通用网络视频下载与管理工具，支持 m3u8 / AES-128 加密视频与直链媒体，保存到飞牛共享目录。</p><p>· 应用本身不内置任何视频站点或资源网址，源需由使用者自行添加<br>· 首次打开会显示使用声明，请确认同意后使用<br>· 下载根目录可在应用「设置」里修改并授权<br>· 项目地址：https://github.com/Ranlove99/DramaNest</p><p style=\"color:#8a929e\">请仅下载你有权保存的合法公开内容，遵守目标网站服务条款与所在地区法规。</p>"
+      }
+    ]
+  },
+  {
+    "stepTitle": "启动选项",
+    "items": [
+      {
+        "type": "switch",
+        "field": "wizard_auto_enable",
+        "label": "安装完成后立即启动",
+        "initValue": "true"
+      }
+    ]
+  }
+]

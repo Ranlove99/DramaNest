@@ -1,0 +1,64 @@
+#!/bin/bash
+# ============================================================
+# 升级后（cmd/upgrade_callback）
+# 新文件已解压、旧 target 已替换；TRIM_PKGVAR / TRIM_PKGETC 中的
+# 用户数据与配置会保留（升级不清空）。做完迁移后重新启动。
+# ============================================================
+set -u
+
+APP_NAME="dramanest"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VAR_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+ETC_DIR="${TRIM_PKGETC:-/var/apps/${APP_NAME}/etc}"
+
+# 【按应用补充】配置/数据迁移示例：
+# if [ -f "$ETC_DIR/app.json" ] && ! grep -q '"schema"' "$ETC_DIR/app.json"; then
+#   ... 迁移旧格式 ...
+# fi
+
+mkdir -p "$VAR_DIR" "$ETC_DIR" 2>/dev/null || true
+
+# 升级时重新授权下载目录：老版本安装的目录属主可能还是 root，
+# 导致升级后应用写不进去（日志里的 Permission denied 多来自这里）。
+# 策略与 install_callback 一致：新建才 chown，已有只追加 ACL，绝不动用户文件属主。
+APP_USER="dramanest"
+DEFAULT_ROOT="/vol1/1000/Movie/DramaNest"
+
+read_download_root() {
+  local r=""
+  if [ -f "$ETC_DIR/app.json" ]; then
+    r="$(sed -n 's/.*"download_root"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+         "$ETC_DIR/app.json" 2>/dev/null | head -1)"
+  fi
+  [ -n "$r" ] || r="$DEFAULT_ROOT"
+  printf '%s' "$r"
+}
+
+grant_dir() {
+  local d="$1" created=0
+  [ -n "$d" ] || return 0
+  # 父目录不存在说明卷没挂载，别在只读根分区上造空目录
+  [ -d "$(dirname "$d")" ] || return 0
+  if [ ! -d "$d" ]; then
+    mkdir -p "$d" 2>/dev/null || return 0
+    created=1
+  fi
+  if [ "$created" = "1" ]; then
+    chown "${APP_USER}:${APP_USER}" "$d" 2>/dev/null || true
+    chmod 775 "$d" 2>/dev/null || true
+  else
+    if command -v setfacl >/dev/null 2>&1; then
+      setfacl -m "u:${APP_USER}:rwx" "$d" 2>/dev/null || true
+      setfacl -d -m "u:${APP_USER}:rwx" "$d" 2>/dev/null || true
+    else
+      chown "${APP_USER}:${APP_USER}" "$d" 2>/dev/null || true
+    fi
+  fi
+  printf 'download dir granted(%s): %s\n' "$created" "$d" \
+    >>"${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null || true
+}
+
+grant_dir "$(read_download_root)"
+
+"${SCRIPT_DIR}/main" start
+exit $?

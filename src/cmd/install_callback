@@ -1,0 +1,97 @@
+#!/bin/bash
+# ============================================================
+# 安装后初始化（cmd/install_callback）
+#
+# 时序：应用文件已解压到 TRIM_APPDEST —— 这里才做包完整性校验、
+#       落默认配置、首次启动。全部操作必须幂等（fnOS 随后可能再调 main start）。
+# ============================================================
+set -u
+
+APP_NAME="dramanest"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}/target}"
+VAR_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+ETC_DIR="${TRIM_PKGETC:-/var/apps/${APP_NAME}/etc}"
+
+fail() {
+  printf '%s\n' "$1" >"${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null || true
+  exit 1
+}
+
+find_python() {
+  local p
+  for p in /var/apps/python312/target/bin/python3 /usr/bin/python3 /usr/local/bin/python3; do
+    [ -x "$p" ] && { printf '%s' "$p"; return 0; }
+  done
+  command -v python3 2>/dev/null || true
+}
+
+# 1) 包完整性：app/ 的内容解压到 APP_DIR 本身（注意不是 APP_DIR/app）
+[ -d "$APP_DIR" ] || fail "安装包不完整：缺少 $APP_DIR"
+[ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ] || fail "安装包不完整：$APP_DIR 为空"
+
+# 2) 内置依赖导入自检：-S 屏蔽系统 site-packages，验证 vendor 自给自足
+#    未使用 app/vendor 的应用把 VENDOR_MODULE 留空即跳过
+VENDOR_MODULE=""
+if [ -n "$VENDOR_MODULE" ] && [ -d "$APP_DIR/vendor" ]; then
+  PY="$(find_python)"
+  [ -n "$PY" ] || fail "未找到 python3 运行时"
+  "$PY" -S - "$APP_DIR/vendor" "$VENDOR_MODULE" <<'PY' || fail "内置依赖导入失败，安装包可能损坏"
+import sys
+sys.path.insert(0, sys.argv[1])
+__import__(sys.argv[2])
+PY
+fi
+
+# 3) 目录与默认配置（幂等）
+mkdir -p "$VAR_DIR" "$ETC_DIR" 2>/dev/null || true
+
+# 3.1) 下载目录授权
+#      应用以独立账号（dramanest）运行，对共享目录默认没有写权限，日志里常见
+#      "Permission denied: /vol1/1000/Movie/DramaNest"。安装时以 root 建目录
+#      并把属主交给应用账号，等于替用户完成"授权访问该文件夹"。
+APP_USER="dramanest"
+DEFAULT_ROOT="/vol1/1000/Movie/DramaNest"
+
+read_download_root() {
+  local r=""
+  if [ -f "$ETC_DIR/app.json" ]; then
+    r="$(sed -n 's/.*"download_root"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+         "$ETC_DIR/app.json" 2>/dev/null | head -1)"
+  fi
+  [ -n "$r" ] || r="$DEFAULT_ROOT"
+  printf '%s' "$r"
+}
+
+grant_dir() {
+  local d="$1" created=0
+  [ -n "$d" ] || return 0
+  # 父目录不存在说明卷没挂载，别在只读根分区上造空目录
+  [ -d "$(dirname "$d")" ] || return 0
+  if [ ! -d "$d" ]; then
+    mkdir -p "$d" 2>/dev/null || return 0
+    created=1
+  fi
+  if [ "$created" = "1" ]; then
+    # 目录是我们新建的，直接把属主给应用账号
+    chown "${APP_USER}:${APP_USER}" "$d" 2>/dev/null || true
+    chmod 775 "$d" 2>/dev/null || true
+  else
+    # 已有目录（用户自己的共享文件夹）不动属主，只追加 ACL，避免影响用户访问
+    if command -v setfacl >/dev/null 2>&1; then
+      setfacl -m "u:${APP_USER}:rwx" "$d" 2>/dev/null || true
+      setfacl -d -m "u:${APP_USER}:rwx" "$d" 2>/dev/null || true
+    else
+      # 没有 setfacl 的机型只能改属主，只动目录本身，不递归改用户文件
+      chown "${APP_USER}:${APP_USER}" "$d" 2>/dev/null || true
+    fi
+  fi
+  printf 'download dir granted(%s): %s\n' "$created" "$d" \
+    >>"${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null || true
+}
+
+grant_dir "$(read_download_root)"
+
+# 4) 首次启动
+"${SCRIPT_DIR}/main" start
+exit $?

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "示例资源站 1",
+    "api": "https://example1.com/api.php/provide/vod/at/json",
+    "category": "normal",
+    "folder": "示例分组"
+  },
+  {
+    "name": "示例资源站 2",
+    "api": "https://example2.com/api.php/provide/vod/at/json",
+    "category": "normal",
+    "folder": "示例分组"
+  },
+  {
+    "name": "示例资源站 3",
+    "api": "https://example3.com/api.php/provide/vod/at/json",
+    "category": "normal",
+    "folder": "示例分组"
+  },
+  {
+    "name": "示例成人站（需开启成人开关）",
+    "api": "https://example-adult.com/api.php/provide/vod/at/json",
+    "category": "adult",
+    "folder": "示例成人"
+  }
+]
